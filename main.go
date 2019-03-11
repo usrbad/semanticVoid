@@ -49,6 +49,7 @@ func openFile(fileName string) []string {
 	for _, val := range words {
 		result = append(result, val.(string))
 	}
+	file.Close()
 	return result
 }
 
