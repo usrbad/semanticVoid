@@ -6,6 +6,7 @@ import (
 	"github.com/Syfaro/telegram-bot-api"
 	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -20,22 +21,23 @@ const (
 
 func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
-
 	bot, err := tgbotapi.NewBotAPI(os.Getenv("tgToken"))
 	checkErr(err)
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 	updates, err := bot.GetUpdatesChan(u)
 	checkErr(err)
-
-	for newMsg := range updates{
+	// Special for Heroku:
+	http.HandleFunc("/", MainHandler)
+	go http.ListenAndServe(":"+os.Getenv("PORT"), nil)
+	// end special
+	for newMsg := range updates {
 		if newMsg.Message == nil {
 			continue
 		}
-		msg := tgbotapi.NewMessage(newMsg.Message.Chat.ID,stringComposer())
+		msg := tgbotapi.NewMessage(newMsg.Message.Chat.ID, stringComposer())
 		bot.Send(msg)
 	}
-
 }
 
 func openFile(fileName string) []string {
@@ -53,12 +55,16 @@ func openFile(fileName string) []string {
 	return result
 }
 
-func stringComposer() string{
+func stringComposer() string {
 	f1 := openFile(file1)
 	f2 := openFile(file2)
 	f3 := openFile(file3)
 	f4 := openFile(file4)
 	return fmt.Sprintf("%v %v%v %v", strings.Title(f1[rand.Intn(len(f1))]), strings.Title(f2[rand.Intn(len(f2))]), f3[rand.Intn(len(f3))], strings.Title(f4[rand.Intn(len(f4))]))
+}
+
+func MainHandler(resp http.ResponseWriter, _ *http.Request) {
+	resp.Write([]byte("OK"))
 }
 
 func checkErr(err error) {
