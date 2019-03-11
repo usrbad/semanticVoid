@@ -1,7 +1,0 @@
-.gitignore
-/.git
-/.idea
-/.git_bak
-/Godeps
-/vendor
-Procfile
