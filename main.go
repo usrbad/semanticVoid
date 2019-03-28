@@ -44,6 +44,7 @@ var files struct {
 }
 
 func main() {
+
 	superadmin := "" //superadmin username
 	admins := make(map[string]bool)
 	admins[superadmin] = true
@@ -64,7 +65,7 @@ func main() {
 		_, ok := admins[newMsg.Message.From.UserName]
 		switch {
 		case newMsg.Message == nil:
-			continue
+			fallthrough
 		case newMsg.Message.Text == "updateDB" && ok:
 			log.Printf("UpdateDB started by user: %s\n", newMsg.Message.From.UserName)
 			lastmsg = "updateDB"
@@ -133,7 +134,7 @@ func main() {
 					bot.Send(msg)
 				}
 			}
-		case newMsg.Message.Text == "admins" && ok:
+		case strings.ToLower(newMsg.Message.Text) == "admins" && ok:
 			adm := ""
 			for a := range admins {
 				name := fmt.Sprintf("@%s", a)
@@ -153,10 +154,15 @@ func main() {
 
 func readWordsFromFiles() {
 	log.Println("Start reading files...")
-	files.f1 = openFile(file1)
-	files.f2 = openFile(file2)
-	files.f3 = openFile(file3)
-	files.f4 = openFile(file4)
+	execPath, err := os.Getwd()
+	if err != nil {
+		log.Println(err)
+	}
+	filePath := execPath + "/../data/"
+	files.f1 = openFile(filePath + file1)
+	files.f2 = openFile(filePath + file2)
+	files.f3 = openFile(filePath + file3)
+	files.f4 = openFile(filePath + file4)
 	log.Println("Finished reading files.")
 }
 
@@ -169,7 +175,9 @@ func openFile(fileName string) []string {
 	checkErr(err)
 	json.Unmarshal(b, &words)
 	for _, val := range words {
-		result = append(result, val.(string))
+		if _, ok := val.(string); ok {
+			result = append(result, val.(string))
+		}
 	}
 	file.Close()
 	return result
@@ -185,12 +193,16 @@ func MainHandler(resp http.ResponseWriter, _ *http.Request) {
 
 func checkErr(err error) {
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 }
 
 func urlLoader(url string) error {
-
+	execPath, err := os.Getwd()
+	if err != nil {
+		log.Println(err)
+	}
+	filePath := execPath + "/../data/" + path.Base(url)
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Printf("Can't load file from %s\n", url)
@@ -199,25 +211,25 @@ func urlLoader(url string) error {
 	if resp != nil {
 		defer resp.Body.Close()
 	}
-	if path.Base(url) != file1 || path.Base(url) != file2 || path.Base(url) != file3 || path.Base(url) != file4 {
+	if path.Base(url) == file1 || path.Base(url) == file2 || path.Base(url) == file3 || path.Base(url) == file4 {
+		out, err := os.Create(filePath)
+		if err != nil {
+			log.Printf("File not created: %s\n", path.Base(url))
+			return err
+		} else {
+			log.Printf("File %s created\n", path.Base(url))
+		}
+		_, err = io.Copy(out, resp.Body)
+		if err != nil {
+			log.Printf("File not copied: %s\n", url)
+		} else {
+			log.Printf("File %s copied\n", path.Base(url))
+		}
+		out.Close()
+	} else {
 		log.Printf("File %s doesn't match schema", path.Base(url))
 		err := errors.New("Wrong file name")
 		return err
 	}
-	out, err := os.Create(path.Base(url))
-	if err != nil {
-		log.Printf("File not created: %s\n", path.Base(url))
-		return err
-	} else {
-		log.Printf("File %s created\n", path.Base(url))
-	}
-	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		log.Printf("File not copied: %s\n", url)
-	} else {
-		log.Printf("File %s copied\n", path.Base(url))
-	}
-	out.Close()
 	return err
-
 }
